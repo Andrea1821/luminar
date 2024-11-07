@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestión de Ventas y Pagos | Luminar</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/dashboard-vendedor.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel='stylesheet' href='https://cdn-uicons.flaticon.com/2.1.0/uicons-solid-rounded/css/uicons-solid-rounded.css'>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Sidebar (igual que en dashboard) -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <a href="/dashboard-admin" class="back-button"><i class="fas fa-arrow-left"></i></a>
+                <h2>Admin Panel</h2>
+            </div>
+            <nav class="sidebar">
+                <ul class="nav-links">
+                    <li><a href="/dashboard-admin" class="active"><i class="fas fa-home"></i> Inicio</a></li>
+                    <li><a href="/admin/usuarios"><i class="fas fa-user"></i> Usuarios</a></li>
+                    <li><a href="/admin/clientes"><i class="fas fa-users"></i> Clientes</a></li>
+                    <li><a href="/admin/ordenes"><i class="fas fa-clipboard-list"></i> Órdenes</a></li>
+                    <li><a href="/admin/productos"><i class="fas fa-box-open"></i> Productos</a></li>
+                    <li><a href="/admin/inventario"><i class="fas fa-warehouse"></i> Inventario</a></li>
+                    <li><a href="/admin/roles"><i class="fas fa-user-tag"></i> Roles</a></li>
+                    <li><a href="/admin/reportes"><i class="fas fa-chart-line"></i> Reportes</a></li>
+                    <li><a href="/admin/ventas"><i class="fas fa-dollar-sign"></i> Ventas</a></li>
+                    <li><a href="/admin/config"><i class="fas fa-cogs"></i> Configuración</a></li>
+                </ul>
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <h2>Gestión de Ventas y Pagos</h2>
+            <header class="top-bar">
+                <div class="search-box">
+                    <input type="text" placeholder="Buscar ventas..." id="searchInput" onkeyup="buscarVenta()">
+                </div>
+                <div class="actions">
+                    <button class="nueva-venta-btn" onclick="abrirModalNuevaVenta()">Nueva Venta</button>
+                </div>
+            </header>
+
+            <!-- Filtros de Ventas -->
+            <div class="filtros-section">
+                <select id="filtroEstado">
+                    <option value="">Estado</option>
+                    <option value="completada">Completada</option>
+                    <option value="pendiente">Pendiente</option>
+                    <option value="cancelada">Cancelada</option>
+                </select>
+                <input type="date" id="fechaInicio">
+                <input type="date" id="fechaFin">
+                <button class="filtrar-btn" onclick="filtrarVentas()">Aplicar Filtros</button>
+            </div>
+
+            <!-- Tabla de Ventas -->
+            <div class="ventas-table">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID Venta</th>
+                            <th>Fecha</th>
+                            <th>Cliente</th>
+                            <th>Productos</th>
+                            <th>Total</th>
+                            <th>Estado</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ventasTableBody">
+                        <!-- Datos dinámicos aquí -->
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Modal de Pagos de Venta -->
+            <div id="modalPago" class="modal">
+                <div class="modal-content">
+                    <h2>Detalles de Pago</h2>
+                    <div class="detalle-pago">
+                        <p><strong>ID Pago:</strong> <span id="idPago"></span></p>
+                        <p><strong>Código de Pago:</strong> <span id="codigoPago"></span></p>
+                        <p><strong>Fecha de Pago:</strong> <span id="fechaPago"></span></p>
+                        <p><strong>Método de Pago:</strong> <span id="metodoPago"></span></p>
+                        <p><strong>Monto:</strong> <span id="montoPago"></span></p>
+                        <p><strong>Estado:</strong> <span id="estadoPago"></span></p>
+                        <button type="button" onclick="cerrarModalPago()">Cerrar</button>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            cargarVentas();
+
+            document.querySelector('.filtrar-btn').addEventListener('click', filtrarVentas);
+        });
+
+        // Función para cargar ventas
+        async function cargarVentas(estado = '', fechaInicio = '', fechaFin = '') {
+            try {
+                const response = await fetch(`/api/order?estado=${estado}&fechaInicio=${fechaInicio}&fechaFin=${fechaFin}`);
+                const ventas = await response.json();
+                actualizarTablaVentas(ventas);
+            } catch (error) {
+                console.error('Error al cargar ventas:', error);
+            }
+        }
+
+        // Función para actualizar la tabla de ventas
+        function actualizarTablaVentas(ventas) {
+            const tbody = document.getElementById('ventasTableBody');
+            tbody.innerHTML = '';
+
+            ventas.forEach(venta => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${venta.orden_id}</td>
+                    <td>${new Date(venta.fecha_orden).toLocaleDateString()}</td>
+                    <td>${venta.Cliente ? venta.Cliente.nombre : 'N/A'}</td>
+                    <td>${venta.Productos ? venta.Productos.map(p => p.nombre_producto).join(', ') : 'N/A'}</td>
+                    <td>$${venta.total.toFixed(2)}</td>
+                    <td><span class="status ${venta.estado.toLowerCase()}">${venta.estado}</span></td>
+                    <td>
+                        <button class="ver-btn" onclick="verVenta(${venta.orden_id})">Ver</button>
+                        <button class="pago-btn" onclick="verPago(${venta.orden_id})">Pago</button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        // Función para ver el pago de una venta específica
+        async function verPago(ordenId) {
+            try {
+                const response = await fetch(`/api/payment/${ordenId}`);
+                const pago = await response.json();
+
+                document.getElementById('idPago').textContent = pago.pago_id;
+                document.getElementById('codigoPago').textContent = pago.codigo_pago;
+                document.getElementById('fechaPago').textContent = new Date(pago.fecha_pago).toLocaleDateString();
+                document.getElementById('metodoPago').textContent = pago.metodo_pago;
+                document.getElementById('montoPago').textContent = `$${pago.monto.toFixed(2)}`;
+                document.getElementById('estadoPago').textContent = pago.estado_pago;
+
+                document.getElementById('modalPago').style.display = 'block';
+            } catch (error) {
+                console.error('Error al cargar detalles del pago:', error);
+                alert('No se pudo cargar el pago de la venta.');
+            }
+        }
+
+        // Cerrar el modal de detalles del pago
+        function cerrarModalPago() {
+            document.getElementById('modalPago').style.display = 'none';
+        }
+
+        // Función para aplicar filtros
+        function filtrarVentas() {
+            const estado = document.getElementById('filtroEstado').value;
+            const fechaInicio = document.getElementById('fechaInicio').value;
+            const fechaFin = document.getElementById('fechaFin').value;
+            cargarVentas(estado, fechaInicio, fechaFin);
+        }
+    </script>
+
+    <style>
+        /* Estilos para el fondo del modal */
+        .modal {
+            display: none;
+            justify-content: center;
+            align-items: center;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            overflow: hidden;
+        }
+
+        /* Estilos para el contenido del modal */
+        .modal-content {
+            background-color: #fff;
+            border-radius: 8px;
+            max-width: 400px;
+            width: 90%;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        /* Estilos para los botones de la tabla */
+        .ver-btn, .pago-btn {
+            cursor: pointer;
+            padding: 5px 10px;
+            border: none;
+            background-color: #007bff;
+            color: white;
+            border-radius: 5px;
+        }
+
+        .ver-btn:hover, .pago-btn:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</body>
+</html>

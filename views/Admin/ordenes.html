@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard de Órdenes</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/dashboard-vendedor.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdn-uicons.flaticon.com/2.1.0/uicons-solid-rounded/css/uicons-solid-rounded.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+</head>
+<body>
+    <header>
+        <h1>Dashboard de Órdenes</h1>
+    </header>
+    <div class="container">
+        <aside class="sidebar">
+            <!-- Sidebar content -->
+        </aside>
+        <div class="main-content">
+            <div class="top-bar">
+                <!-- Top bar content -->
+            </div>
+
+            <!-- Tabla de Órdenes -->
+            <div class="recent-sales">
+                <h3>Órdenes Recientes</h3>
+                <button class="nuevo-cliente-btn" onclick="mostrarModal()">Nueva Orden</button>
+                <table id="ordenesTable">
+                    <thead>
+                        <tr>
+                            <th>ID Orden</th>
+                            <th>Cliente ID</th>
+                            <th>Usuario ID</th>
+                            <th>Código Orden</th>
+                            <th>Fecha Orden</th>
+                            <th>Fecha Entrega Estimada</th>
+                            <th>Fecha Entrega Real</th>
+                            <th>Subtotal</th>
+                            <th>Impuestos</th>
+                            <th>Descuento</th>
+                            <th>Total</th>
+                            <th>Estado</th>
+                            <th>Dirección Envío</th>
+                            <th>Notas</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ordenesBody">
+                        <!-- Filas dinámicas generadas por JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Modal para CRUD -->
+            <div class="modal" id="ordenModal">
+                <div class="modal-content">
+                    <span onclick="cerrarModal()" style="cursor:pointer;">&times;</span>
+                    <form id="ordenForm">
+                        <!-- Form fields -->
+                        <div class="modal-buttons">
+                            <button type="submit" class="save-btn">Guardar</button>
+                            <button type="button" onclick="cerrarModal()" class="cancel-btn">Cancelar</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const apiUrl = '/api/order';
+
+        function mostrarModal(orden = null) {
+            const modal = document.getElementById('ordenModal');
+            if (orden) {
+                // Fill in form fields with order data
+            } else {
+                document.getElementById('ordenForm').reset();
+            }
+            modal.style.display = 'block';
+        }
+
+        function cerrarModal() {
+            document.getElementById('ordenModal').style.display = 'none';
+        }
+
+        document.getElementById('ordenForm').addEventListener('submit', async function (event) {
+            event.preventDefault();
+            const ordenId = document.getElementById('ordenId').value;
+            const method = ordenId ? 'PUT' : 'POST';
+            const url = ordenId ? `${apiUrl}/${ordenId}` : apiUrl;
+
+            const orden = {
+                cliente_id: parseInt(document.getElementById('clienteId').value.trim()),
+                usuario_id: document.getElementById('usuarioId').value ? parseInt(document.getElementById('usuarioId').value.trim()) : null,
+                codigo_orden: document.getElementById('codigoOrden').value.trim(),
+                fecha_orden: document.getElementById('fechaOrden').value,
+                fecha_entrega_estimada: document.getElementById('fechaEntregaEstimada').value,
+                fecha_entrega_real: document.getElementById('fechaEntregaReal').value,
+                subtotal: parseFloat(document.getElementById('subtotal').value.trim()),
+                impuestos: parseFloat(document.getElementById('impuestos').value.trim()),
+                descuento: parseFloat(document.getElementById('descuento').value.trim() || 0),
+                total: parseFloat(document.getElementById('total').value.trim()),
+                estado: document.getElementById('estado').value,
+                direccion_envio: document.getElementById('direccionEnvio').value.trim(),
+                notas: document.getElementById('notas').value.trim()
+            };
+
+            try {
+                const response = await fetch(url, {
+                    method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(orden),
+                });
+
+                if (response.ok) {
+                    cargarOrdenes();
+                    cerrarModal();
+                } else {
+                    const errorData = await response.json();
+                    alert(`Error al guardar la orden: ${errorData.message || 'Error desconocido'}`);
+                }
+            } catch (error) {
+                alert('Error al conectar con el servidor');
+            }
+        });
+
+        async function cargarOrdenes() {
+            try {
+                const response = await fetch(apiUrl);
+                if (!response.ok) throw new Error('Failed to fetch orders');
+
+                const orders = await response.json();
+                const ordersBody = document.getElementById('ordenesBody');
+                ordersBody.innerHTML = '';
+
+                orders.forEach(order => {
+                    // Check if `Detalles` exists and is an array
+                    const products = Array.isArray(order.Detalles) && order.Detalles.length > 0
+                        ? order.Detalles
+                            .map(detail => detail.Producto ? detail.Producto.nombre_producto : 'Producto desconocido')
+                            .join(', ')
+                        : 'No hay productos';
+
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${order.orden_id}</td>
+                        <td>${order.cliente_id || 'N/A'}</td>
+                        <td>${order.usuario_id || 'N/A'}</td>
+                        <td>${order.codigo_orden || 'N/A'}</td>
+                        <td>${order.fecha_orden ? new Date(order.fecha_orden).toLocaleDateString() : 'N/A'}</td>
+                        <td>${order.fecha_entrega_estimada ? new Date(order.fecha_entrega_estimada).toLocaleDateString() : 'N/A'}</td>
+                        <td>${order.fecha_entrega_real ? new Date(order.fecha_entrega_real).toLocaleDateString() : 'N/A'}</td>
+                        <td>$${order.subtotal ? order.subtotal.toFixed(2) : '0.00'}</td>
+                        <td>$${order.impuestos ? order.impuestos.toFixed(2) : '0.00'}</td>
+                        <td>$${order.descuento ? order.descuento.toFixed(2) : '0.00'}</td>
+                        <td>$${order.total ? order.total.toFixed(2) : '0.00'}</td>
+                        <td>${order.estado || 'Pendiente'}</td>
+                        <td>${order.direccion_envio || 'N/A'}</td>
+                        <td>${order.notas || 'N/A'}</td>
+                        <td>
+                            <button onclick="mostrarModal(${JSON.stringify(order)})">Editar</button>
+                            <button onclick="eliminarOrden(${order.orden_id})">Eliminar</button>
+                        </td>
+                    `;
+                    ordersBody.appendChild(row);
+                });
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error loading orders');
+            }
+        }
+
+        async function eliminarOrden(ordenId) {
+            const confirmacion = confirm('¿Estás seguro de que deseas eliminar esta orden?');
+            if (!confirmacion) return;
+
+            try {
+                const response = await fetch(`${apiUrl}/${ordenId}`, {
+                    method: 'DELETE',
+                });
+
+                if (response.ok) {
+                    cargarOrdenes();
+                } else {
+                    const errorData = await response.json();
+                    alert(`Error al eliminar la orden: ${errorData.message || 'Error desconocido'}`);
+                }
+            } catch (error) {
+                alert('Error al conectar con el servidor');
+            }
+        }
+
+        function buscarOrden() {
+            const input = document.getElementById('searchInput').value.toLowerCase();
+            const filas = document.querySelectorAll('#ordenesBody tr');
+            filas.forEach(fila => {
+                const cliente = fila.children[1].textContent.toLowerCase();
+                fila.style.display = cliente.includes(input) ? '' : 'none';
+            });
+        }
+
+        cargarOrdenes();
+    </script>
+</body>
+</html>
